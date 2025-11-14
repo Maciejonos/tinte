@@ -99,7 +99,7 @@ export const PaletteEditor = GObject.registerClass(
       this._emptyState.set_visible(!this._showingBrowser);
 
       if (this._showingBrowser) {
-        this._wallpaperBrowser.refresh();
+        this._wallpaperBrowser.onBrowserShown();
       }
     }
 

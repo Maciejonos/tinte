@@ -14,50 +14,6 @@ export class ThumbnailService {
     GLib.mkdir_with_parents(this.cacheDir, 0o755);
   }
 
-  getThumbnail(imagePath, width, height, callback) {
-    const cacheKey = this._getCacheKey(imagePath, width, height);
-    const cachePath = GLib.build_filenamev([this.cacheDir, cacheKey]);
-
-    const cacheFile = Gio.File.new_for_path(cachePath);
-    if (cacheFile.query_exists(null)) {
-      try {
-        const pixbuf = GdkPixbuf.Pixbuf.new_from_file(cachePath);
-        const texture = Gdk.Texture.new_for_pixbuf(pixbuf);
-        callback(texture);
-        return;
-      } catch (e) {
-        console.warn(
-          `Failed to load cached thumbnail for ${imagePath}:`,
-          e.message,
-        );
-      }
-    }
-
-    GLib.idle_add(GLib.PRIORITY_LOW, () => {
-      try {
-        const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-          imagePath,
-          width,
-          height,
-          true,
-        );
-
-        pixbuf.savev(cachePath, "png", [], []);
-
-        const texture = Gdk.Texture.new_for_pixbuf(pixbuf);
-        callback(texture);
-      } catch (e) {
-        console.error(
-          `Failed to generate thumbnail for ${imagePath}:`,
-          e.message,
-        );
-        callback(null);
-      }
-
-      return GLib.SOURCE_REMOVE;
-    });
-  }
-
   _getCacheKey(imagePath, width, height) {
     const str = `${imagePath}-${width}x${height}`;
     let hash = 0;
@@ -73,18 +29,52 @@ export class ThumbnailService {
     return `${hashStr}-${basename}.png`;
   }
 
+  async getThumbnail(imagePath, width, height) {
+    const cacheKey = this._getCacheKey(imagePath, width, height);
+    const cachePath = GLib.build_filenamev([this.cacheDir, cacheKey]);
+    const cacheFile = Gio.File.new_for_path(cachePath);
+
+    if (cacheFile.query_exists(null)) {
+      try {
+        return this._loadTexture(cachePath);
+      } catch (e) {
+        console.warn(`Failed to load cached thumbnail for ${imagePath}:`, e.message);
+      }
+    }
+
+    return new Promise((resolve) => {
+      GLib.idle_add(GLib.PRIORITY_LOW, () => {
+        try {
+          const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+            imagePath,
+            width,
+            height,
+            true,
+          );
+          pixbuf.savev(cachePath, "png", [], []);
+          resolve(this._loadTexture(cachePath));
+        } catch (e) {
+          console.error(`Failed to generate thumbnail for ${imagePath}:`, e.message);
+          resolve(null);
+        }
+        return GLib.SOURCE_REMOVE;
+      });
+    });
+  }
+
+  _loadTexture(path) {
+    const pixbuf = GdkPixbuf.Pixbuf.new_from_file(path);
+    return Gdk.Texture.new_for_pixbuf(pixbuf);
+  }
+
   syncCache(currentWallpapers, width, height) {
     try {
       const dir = Gio.File.new_for_path(this.cacheDir);
-      if (!dir.query_exists(null)) {
-        return;
-      }
+      if (!dir.query_exists(null)) return;
 
-      const validCacheKeys = new Set();
-      currentWallpapers.forEach((path) => {
-        const cacheKey = this._getCacheKey(path, width, height);
-        validCacheKeys.add(cacheKey);
-      });
+      const validCacheKeys = new Set(
+        currentWallpapers.map((path) => this._getCacheKey(path, width, height))
+      );
 
       const enumerator = dir.enumerate_children(
         "standard::name",
@@ -97,18 +87,13 @@ export class ThumbnailService {
         let fileInfo;
         while ((fileInfo = enumerator.next_file(null))) {
           const fileName = fileInfo.get_name();
-
           if (!validCacheKeys.has(fileName)) {
-            const filePath = GLib.build_filenamev([this.cacheDir, fileName]);
-            const file = Gio.File.new_for_path(filePath);
             try {
-              file.delete(null);
+              const filePath = GLib.build_filenamev([this.cacheDir, fileName]);
+              Gio.File.new_for_path(filePath).delete(null);
               deleted++;
             } catch (e) {
-              console.warn(
-                `Failed to delete stale cache file ${fileName}:`,
-                e.message,
-              );
+              console.warn(`Failed to delete stale cache file ${fileName}:`, e.message);
             }
           }
         }
@@ -127,9 +112,7 @@ export class ThumbnailService {
   clearCache() {
     try {
       const dir = Gio.File.new_for_path(this.cacheDir);
-      if (!dir.query_exists(null)) {
-        return true;
-      }
+      if (!dir.query_exists(null)) return true;
 
       const enumerator = dir.enumerate_children(
         "standard::name",
@@ -140,10 +123,8 @@ export class ThumbnailService {
       try {
         let fileInfo;
         while ((fileInfo = enumerator.next_file(null))) {
-          const fileName = fileInfo.get_name();
-          const filePath = GLib.build_filenamev([this.cacheDir, fileName]);
-          const file = Gio.File.new_for_path(filePath);
-          file.delete(null);
+          const filePath = GLib.build_filenamev([this.cacheDir, fileInfo.get_name()]);
+          Gio.File.new_for_path(filePath).delete(null);
         }
       } finally {
         enumerator.close(null);
