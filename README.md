@@ -1,6 +1,40 @@
 # Tinte
 
 Wallpaper utility and theme generator for Wayland. Fork of [aether](https://github.com/bjarneo/aether) that is not limited to Omarchy.
+<table>
+  <tr>
+    <td>
+      <img
+        src="https://github.com/user-attachments/assets/84e18ac3-05c3-400b-90e5-c0def0e1780e"
+        alt="1"
+        width="400"
+      />
+    </td>
+    <td>
+      <img
+        src="https://github.com/user-attachments/assets/cb13dde7-961e-4a07-b0c9-d98666969d7d"
+        alt="2"
+        width="400"
+      />
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <img
+        src="https://github.com/user-attachments/assets/a1bb178c-cfac-4fa1-afc2-9302a47d645c"
+        alt="3"
+        width="400"
+      />
+    </td>
+    <td>
+      <img
+        src="https://github.com/user-attachments/assets/180a7501-857d-4af2-9b63-5b1c6425e0c0"
+        alt="4"
+        width="400"
+      />
+    </td>
+  </tr>
+</table>
 
 ## Features
 
@@ -65,4 +99,4 @@ MIT
 
 ## Credits
 
-Thanks to bjarneo for [aether](https://github.com/bjarneo/aether).
+Thanks to bjarneo for [aether](https://github.com/bjarneo/aether) and awesome neovim plugins!
