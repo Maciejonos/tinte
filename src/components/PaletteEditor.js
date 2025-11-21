@@ -13,6 +13,7 @@ export const PaletteEditor = GObject.registerClass(
   {
     Signals: {
       "palette-generated": { param_types: [GObject.TYPE_JSOBJECT] },
+      "wallpaper-loaded": {},
       "show-message": { param_types: [GObject.TYPE_STRING] },
     },
   },
@@ -109,6 +110,7 @@ export const PaletteEditor = GObject.registerClass(
       this._wallpaperBrowser.set_visible(false);
       this._showingBrowser = false;
       this._wallpaperSection.loadWallpaper(path);
+      this.emit("wallpaper-loaded");
     }
 
     _extractColors(imagePath) {
@@ -177,6 +179,17 @@ export const PaletteEditor = GObject.registerClass(
       this._wallpaperBrowser.set_visible(false);
       this._emptyState.set_visible(true);
       this._showingBrowser = false;
+      this.wallpaperPath = null;
+    }
+
+    back() {
+      this._wallpaperSection.reset();
+      this._colorPalette.reset();
+      this._colorPalette.set_visible(false);
+      this._wallpaperBrowser.set_visible(true);
+      this._emptyState.set_visible(false);
+      this._showingBrowser = true;
+      this._wallpaperBrowser.onBrowserShown();
       this.wallpaperPath = null;
     }
   },

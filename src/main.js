@@ -6,14 +6,14 @@ import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
-import {PaletteEditor} from './components/PaletteEditor.js';
-import {ActionBar} from './components/ActionBar.js';
-import {ConfigWriter} from './utils/ConfigWriter.js';
-import {ThemeExporter} from './services/ThemeExporter.js';
-import {SettingsManager} from './services/SettingsManager.js';
-import {SettingsDialog} from './components/SettingsDialog.js';
-import {runMatugen} from './utils/matugen-extraction.js';
-import {SignalManager} from './utils/SignalManager.js';
+import { PaletteEditor } from './components/PaletteEditor.js';
+import { ActionBar } from './components/ActionBar.js';
+import { ConfigWriter } from './utils/ConfigWriter.js';
+import { ThemeExporter } from './services/ThemeExporter.js';
+import { SettingsManager } from './services/SettingsManager.js';
+import { SettingsDialog } from './components/SettingsDialog.js';
+import { runMatugen } from './utils/matugen-extraction.js';
+import { SignalManager } from './utils/SignalManager.js';
 
 Adw.init();
 
@@ -127,6 +127,16 @@ const TinteWindow = GObject.registerClass(
 
             this._signals.connect(this.actionBar, 'reset', () => {
                 this._resetApplication();
+                this.actionBar.setBackVisible(false);
+            });
+
+            this._signals.connect(this.actionBar, 'back', () => {
+                this.paletteEditor.back();
+                this.actionBar.setBackVisible(false);
+            });
+
+            this._signals.connect(this.paletteEditor, 'wallpaper-loaded', () => {
+                this.actionBar.setBackVisible(true);
             });
         }
 
