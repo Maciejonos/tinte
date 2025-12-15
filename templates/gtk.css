@@ -1,9 +1,3 @@
-/**
- * Tinte Theme with Sharp Corners (Hyprland-inspired)
- * GTK4/Adwaita Custom Styling
- */
-
-/* Dynamic color palette from Tinte */
 @define-color background {background};
 @define-color foreground {foreground};
 

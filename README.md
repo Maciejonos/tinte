@@ -1,102 +1,125 @@
 # Tinte
 
-Wallpaper utility and theme generator for Wayland. Fork of [aether](https://github.com/bjarneo/aether) that is not limited to Omarchy.
-<table>
-  <tr>
-    <td>
-      <img
-        src="https://github.com/user-attachments/assets/84e18ac3-05c3-400b-90e5-c0def0e1780e"
-        alt="1"
-        width="400"
-      />
-    </td>
-    <td>
-      <img
-        src="https://github.com/user-attachments/assets/cb13dde7-961e-4a07-b0c9-d98666969d7d"
-        alt="2"
-        width="400"
-      />
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <img
-        src="https://github.com/user-attachments/assets/a1bb178c-cfac-4fa1-afc2-9302a47d645c"
-        alt="3"
-        width="400"
-      />
-    </td>
-    <td>
-      <img
-        src="https://github.com/user-attachments/assets/180a7501-857d-4af2-9b63-5b1c6425e0c0"
-        alt="4"
-        width="400"
-      />
-    </td>
-  </tr>
-</table>
+A 16-color palette generator for terminals and Wayland apps.
+
+Similar to [matugen](https://github.com/InioX/matugen) and [pywal](https://github.com/dylanaraps/pywal), but focused on ANSI terminal colors (0-15) using ImageMagick for extraction.
+
+> **Templates:** See [templates/](./templates) for ready-to-use configs (Alacritty, Kitty, Waybar, Hyprland, GTK, etc.)
 
 ## Features
 
-- **Color extraction** - ImageMagick or Matugen backends
-- **Wallpaper setter** - swaybg and hyprpaper support
-- **Theme generation** - 15+ app configs from single wallpaper
-- **Caching** - thumbnails and color palettes
+- Extract dominant colors from images using ImageMagick
+- Generate palette from a single source color
+- Simple template variable substitution (`{color0}`, `{background}`, etc.)
+- Multiple color formats: hex, rgb, rgba
+- Dark and light mode support
+- Post-hooks for reloading apps
 
-## Install
+## Installation
+
+Requires ImageMagick.
+
+#### Arch
 
 ```bash
 paru -S tinte
 ```
 
-**Dependencies:** `gjs` `gtk4` `libadwaita` `libsoup3` `imagemagick` `matugen`
+#### Cargo
+
+```bash
+cargo install tinte
+```
+
+#### From source
+
+```bash
+cargo build --release
+cp target/release/tinte ~/.local/bin/
+```
 
 ## Usage
 
-1. Select wallpaper or drag & drop
-2. Extract colors or set wallpaper
-3. Apply theme or export
+```
+tinte <COMMAND> [OPTIONS]
 
-## Settings
+Commands:
+  image <path>    Extract palette from image
+  color <hex>     Generate palette from source color
 
-- Color backend - ImageMagick or Matugen
-- Wallpaper backend - swaybg or hyprpaper
-- Folder paths and posthook script
+Options:
+  -m, --mode <dark|light>     Color scheme mode [default: dark]
+  -c, --config <path>         Custom config file
+      --dry-run               Preview without writing files
+      --show-colors           Print palette to terminal
+  -j, --json <hex|rgb|strip>  Output palette as JSON
+  -q, --quiet                 Suppress output
+  -v, --verbose               Verbose output
+```
 
-### Defaults
+Examples:
 
-- Backend - ImageMagick
-- Wallpaper Backend - None
-- Wallpaper Folder - `~/Pictures/wallpapers/`
-- Posthook Script - None
-- Export Theme Location - `~/.config/tinte/themes/`
-- Apply Theme Location - `~/.config/themes/tinte/`
+```bash
+tinte image ~/wallpaper.png
+tinte image ~/wallpaper.png --mode light --show-colors
+tinte color "#1a1b26" --dry-run
+tinte image ~/wallpaper.png -j hex
+```
 
-You can also specify all options by editing `~/.config/tinte/settings.json`:
+## Config
 
-```json
-{
-  "wallpaperFolder": "/home/user/Pictures/wallpapers",
-  "posthookScript": "your-script.sh",
-  "exportThemeLocation": "/home/user/.config/tinte/themes",
-  "applyThemeLocation": "/home/user/.config/themes/tinte",
-  "colorBackend": "imagemagick",
-  "wallpaperBackend": "swaybg"
-}
+Create `~/.config/tinte/config.toml`:
+
+```toml
+[config]
+wallpaper_cmd = "swaybg -i {path} -m fill"
+post_hook = "pkill -SIGUSR2 waybar"
+
+[templates.alacritty]
+input_path = "~/.config/tinte/templates/alacritty.toml"
+output_path = "~/.config/alacritty/colors.toml"
+
+[templates.kitty]
+input_path = "~/.config/tinte/templates/kitty.conf"
+output_path = "~/.config/kitty/theme.conf"
+post_hook = "pkill -SIGUSR1 kitty"
 ```
 
 ## Templates
 
-Generates configs for: `alacritty` `btop` `ghostty` `gtk` `hyprland` `hyprlock` `kitty` `mako` `neovim` `swayosd` `walker` `waybar` `wofi`
+Templates use simple variable substitution:
 
-Templates in `templates/` directory.
+```
+{background}        # #1a1b26
+{foreground}        # #c0caf5
+{color0} - {color15}
 
-**Matugen:** Must be configured manually at `~/.config/matugen/config.toml` and `~/.config/matugen/templates/`. Examples in `matugen_templates/`.
+{color1.strip}      # 1a1b26 (no #)
+{color1.rgb}        # 26, 27, 38
+{color1.rgba}       # rgba(26, 27, 38, 1)
+{color1.rgba:0.5}   # rgba(26, 27, 38, 0.5)
+```
+
+## Color Mapping
+
+| Index | Name       | Role                   |
+|-------|------------|------------------------|
+| 0     | color0     | background / black     |
+| 1     | color1     | red                    |
+| 2     | color2     | green                  |
+| 3     | color3     | yellow                 |
+| 4     | color4     | blue                   |
+| 5     | color5     | magenta                |
+| 6     | color6     | cyan                   |
+| 7     | color7     | white                  |
+| 8-15  | color8-15  | bright variants        |
+
+## Related Projects
+
+- [matugen](https://github.com/InioX/matugen) - Material You color generation
+- [pywal](https://github.com/dylanaraps/pywal) - Multiple backends, default theme files
+- [wpgtk](https://github.com/deviantfero/wpgtk) - GUI with more features
 
 ## License
 
 MIT
-
-## Credits
-
-Thanks to bjarneo for [aether](https://github.com/bjarneo/aether) and awesome neovim plugins!

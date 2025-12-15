@@ -1,7 +1,0 @@
-#!/bin/bash
-if [ -d "/usr/share/tinte" ]; then
-  exec gjs -m /usr/share/tinte/src/main.js "$@"
-else
-  cd "$(dirname "$0")" || exit
-  exec gjs -m src/main.js "$@"
-fi

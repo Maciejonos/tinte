@@ -1,0 +1,18 @@
+[package]
+name = "tinte"
+version = "2.0.0"
+edition = "2024"
+description = "16-color palette generator for terminal and Wayland apps"
+license = "MIT"
+repository = "https://github.com/Maciejonos/tinte"
+
+[dependencies]
+clap = { version = "4.5.53", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "0.9.8"
+dirs = "6.0.0"
+anyhow = "1.0.100"
+
+[profile.release]
+lto = true
+strip = true
