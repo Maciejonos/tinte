@@ -5,3 +5,4 @@
 *.tar.zst
 *.pkg.tar.zst
 Cargo.lock
+PKGBUILD
