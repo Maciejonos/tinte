@@ -45,7 +45,7 @@ pub fn process_templates(config: &Config, palette: &Palette, dry_run: bool) -> R
 fn replace_variables(content: &str, palette: &Palette) -> String {
 	let mut result = content.to_string();
 
-	let vars: [(&str, Rgb); 18] = [
+	let vars: [(&str, Rgb); 25] = [
 		("background", palette.background()),
 		("foreground", palette.foreground()),
 		("color0", palette.colors[0]),
@@ -64,6 +64,13 @@ fn replace_variables(content: &str, palette: &Palette) -> String {
 		("color13", palette.colors[13]),
 		("color14", palette.colors[14]),
 		("color15", palette.colors[15]),
+		("accent", palette.accent),
+		("accent_dim", palette.accent_dim),
+		("accent_bright", palette.accent_bright),
+		("secondary", palette.secondary),
+		("surface", palette.surface),
+		("on_accent", palette.on_accent),
+		("on_surface", palette.on_surface),
 	];
 
 	for (name, color) in vars {

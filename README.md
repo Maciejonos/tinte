@@ -10,7 +10,8 @@ Similar to [matugen](https://github.com/InioX/matugen) and [pywal](https://githu
 
 - Extract dominant colors from images using ImageMagick
 - Generate palette from a single source color
-- Simple template variable substitution (`{color0}`, `{background}`, etc.)
+- **Semantic colors** (`{accent}`, `{surface}`, etc.) for UI theming
+- Simple template variable substitution
 - Multiple color formats: hex, rgb, rgba
 - Dark and light mode support
 - Post-hooks for reloading apps
@@ -100,7 +101,9 @@ Templates use simple variable substitution:
 {color1.rgba:0.5}   # rgba(26, 27, 38, 0.5)
 ```
 
-## Color Mapping
+## Color Variables
+
+### ANSI Colors (0-15)
 
 | Index | Name       | Role                   |
 |-------|------------|------------------------|
@@ -113,6 +116,22 @@ Templates use simple variable substitution:
 | 6     | color6     | cyan                   |
 | 7     | color7     | white                  |
 | 8-15  | color8-15  | bright variants        |
+
+### Semantic Colors
+
+For UI theming, tinte provides semantic colors that adapt to the dominant color in your wallpaper:
+
+| Variable       | Description                              |
+|----------------|------------------------------------------|
+| `accent`       | Dominant chromatic color from image      |
+| `accent_dim`   | Darker variant of accent                 |
+| `accent_bright`| Lighter variant of accent                |
+| `secondary`    | Second prominent or complementary color  |
+| `surface`      | Tinted neutral for panels/cards          |
+| `on_accent`    | Text color that contrasts on accent      |
+| `on_surface`   | Text color for surface (same as fg)      |
+
+Unlike ANSI colors which are mapped by hue (red at 1, blue at 4, etc.), semantic colors always represent the actual dominant color from your image. Use `{accent}` in UI templates (GTK, waybar, etc.) to ensure the accent matches your wallpaper.
 
 ## Related Projects
 

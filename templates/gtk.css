@@ -18,15 +18,18 @@
 @define-color bright_cyan {color14};
 @define-color bright_white {color15};
 
-/* Adwaita Color Overrides */
-@define-color accent_bg_color @blue;
-@define-color accent_fg_color @background;
-@define-color accent_color @cyan;
+@define-color accent {accent};
+@define-color accent_dim {accent_dim};
+@define-color accent_bright {accent_bright};
+@define-color surface {surface};
+
+@define-color accent_bg_color @accent;
+@define-color accent_fg_color {on_accent};
+@define-color accent_color @accent_bright;
 
 @define-color window_bg_color @background;
 @define-color window_fg_color @foreground;
 
-/* Sidebar background and content */
 @define-color view_bg_color @black;
 @define-color view_fg_color @foreground;
 @define-color sidebar_bg_color @black;
@@ -61,13 +64,12 @@
 
 @define-color borders alpha(@foreground, 0.1);
 
-/* GTK3 Adwaita Legacy Color Variables */
 @define-color theme_fg_color @foreground;
 @define-color theme_text_color @foreground;
 @define-color theme_bg_color @background;
 @define-color theme_base_color @black;
-@define-color theme_selected_bg_color @blue;
-@define-color theme_selected_fg_color @background;
+@define-color theme_selected_bg_color @accent;
+@define-color theme_selected_fg_color {on_accent};
 @define-color insensitive_bg_color @background;
 @define-color insensitive_fg_color @bright_black;
 @define-color insensitive_base_color @black;
@@ -75,8 +77,8 @@
 @define-color theme_unfocused_text_color @foreground;
 @define-color theme_unfocused_bg_color @background;
 @define-color theme_unfocused_base_color @black;
-@define-color theme_unfocused_selected_bg_color @blue;
-@define-color theme_unfocused_selected_fg_color @background;
+@define-color theme_unfocused_selected_bg_color @accent;
+@define-color theme_unfocused_selected_fg_color {on_accent};
 @define-color unfocused_insensitive_color @bright_black;
 @define-color unfocused_borders alpha(@foreground, 0.1);
 @define-color warning_color @yellow;
@@ -84,30 +86,24 @@
 @define-color success_color @green;
 @define-color destructive_color @red;
 
-/* Content View Colors */
 @define-color content_view_bg @black;
 @define-color text_view_bg @black;
 
-/* GtkMessageDialog styling */
-/* Target the entire dialog's background */
 messagedialog {
     background-color: @dialog_bg_color;
 }
 
-/* Target the main message label inside the dialog */
 messagedialog label {
     color: @dialog_fg_color;
     font-size: 14pt;
     font-weight: bold;
 }
 
-/* Target the secondary, more detailed text (if any) */
 messagedialog .secondary-text {
     font-size: 10pt;
     font-style: italic;
 }
 
-/* Target the buttons in the dialog's action area */
 messagedialog button {
     background-color: @black;
     color: @foreground;
@@ -116,7 +112,7 @@ messagedialog button {
 }
 
 messagedialog button:hover {
-    background-color: @blue;
+    background-color: @accent;
 }
 
 banner revealer widget {
@@ -125,7 +121,6 @@ banner revealer widget {
     color: @foreground;
 }
 
-/* GtkAlertDialog styling */
 alertdialog.background {
     background-color: @dialog_bg_color;
     color: @dialog_fg_color;
@@ -171,7 +166,6 @@ toast button.circular.flat.image-button:hover {
     background-color: @red;
 }
 
-/* SVG Icons - recolor to match foreground text */
 .svg-icon {
     filter: invert(79%) sepia(18%) saturate(611%) hue-rotate(192deg)
         brightness(103%) contrast(94%);

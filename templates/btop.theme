@@ -1,70 +1,37 @@
-# Main background, empty for terminal default, need to be empty if you want transparent background
 theme[main_bg]=""
-
-# Main text color
 theme[main_fg]="{foreground}"
-
-# Title color for boxes
-theme[title]="{color5}"
-
-# Highlight color for keyboard shortcuts
-theme[hi_fg]="{color6}"
-
-# Background color of selected item in processes box
-theme[selected_bg]="{color8}"
-
-# Foreground color of selected item in processes box
+theme[title]="{accent}"
+theme[hi_fg]="{accent_bright}"
+theme[selected_bg]="{surface}"
 theme[selected_fg]="{foreground}"
-
-# Color of inactive/disabled text
 theme[inactive_fg]="{color8}"
-
-# Misc colors for processes box including mini cpu graphs, details memory graph and details status text
-theme[proc_misc]="{color5}"
-
-# Box outline and divider line color
-theme[cpu_box]="{color2}"
-theme[mem_box]="{color2}"
-theme[net_box]="{color2}"
-theme[proc_box]="{color2}"
+theme[proc_misc]="{secondary}"
+theme[cpu_box]="{accent}"
+theme[mem_box]="{accent}"
+theme[net_box]="{accent}"
+theme[proc_box]="{accent}"
 theme[div_line]="{color8}"
-
-# Gradient for all meters and graphs
 theme[temp_start]="{color6}"
-theme[temp_mid]="{color4}"
-theme[temp_end]="{color2}"
-
-
+theme[temp_mid]="{accent}"
+theme[temp_end]="{color1}"
 theme[cpu_start]="{color6}"
-theme[cpu_mid]="{color4}"
-theme[cpu_end]="{color2}"
-
-
-theme[free_start]="{color4}"
-theme[free_mid]="{color3}"
-theme[free_end]="{color3}"
-
-
+theme[cpu_mid]="{accent}"
+theme[cpu_end]="{color1}"
+theme[free_start]="{color2}"
+theme[free_mid]="{color2}"
+theme[free_end]="{color2}"
 theme[cached_start]="{color3}"
 theme[cached_mid]="{color3}"
 theme[cached_end]="{color3}"
-
-
 theme[available_start]="{color6}"
 theme[available_mid]="{color6}"
 theme[available_end]="{color6}"
-
-
-theme[used_start]="{color2}"
-theme[used_mid]="{color2}"
-theme[used_end]="{color2}"
-
-
-theme[download_start]="{color3}"
-theme[download_mid]="{color6}"
-theme[download_end]="{color4}"
-
-
-theme[upload_start]="{color3}"
-theme[upload_mid]="{color6}"
-theme[upload_end]="{color4}"
+theme[used_start]="{color1}"
+theme[used_mid]="{color1}"
+theme[used_end]="{color1}"
+theme[download_start]="{accent_dim}"
+theme[download_mid]="{accent}"
+theme[download_end]="{accent_bright}"
+theme[upload_start]="{secondary}"
+theme[upload_mid]="{secondary}"
+theme[upload_end]="{secondary}"

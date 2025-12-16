@@ -1,6 +1,6 @@
-@define-color selected-text {color4};
+@define-color selected-text {accent};
 @define-color text {foreground};
 @define-color base {background};
-@define-color border {color5};
+@define-color border {accent_dim};
 @define-color foreground {foreground};
 @define-color background {background};

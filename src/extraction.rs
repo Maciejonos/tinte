@@ -26,31 +26,38 @@ const VERY_LIGHT_BG: f64 = 80.0;
 
 const ANSI_HUES: [f64; 6] = [0.0, 120.0, 60.0, 240.0, 300.0, 180.0];
 
+#[derive(Clone)]
+struct WeightedColor {
+	rgb: Rgb,
+	hsl: Hsl,
+	weight: u64,
+}
+
 pub fn extract_palette(image_path: &Path, light_mode: bool) -> Result<Palette> {
 	let resolved = image_path
 		.canonicalize()
 		.unwrap_or_else(|_| image_path.to_path_buf());
 
-	let colors = extract_with_imagemagick(&resolved)?;
+	let weighted = extract_with_imagemagick(&resolved)?;
 
-	if colors.is_empty() {
+	if weighted.is_empty() {
 		return Ok(Palette::default());
 	}
 
-	let hsl_colors: Vec<Hsl> = colors.iter().map(|c| c.to_hsl()).collect();
+	let hsl_colors: Vec<Hsl> = weighted.iter().map(|c| c.hsl).collect();
 
 	let palette = if is_monochrome(&hsl_colors) {
-		generate_monochrome_palette(&colors, &hsl_colors, light_mode)
+		generate_monochrome_palette(&weighted, light_mode)
 	} else if has_low_diversity(&hsl_colors) {
-		generate_subtle_palette(&colors, &hsl_colors, light_mode)
+		generate_subtle_palette(&weighted, light_mode)
 	} else {
-		generate_chromatic_palette(&colors, &hsl_colors, light_mode)
+		generate_chromatic_palette(&weighted, light_mode)
 	};
 
 	Ok(palette)
 }
 
-fn extract_with_imagemagick(path: &Path) -> Result<Vec<Rgb>> {
+fn extract_with_imagemagick(path: &Path) -> Result<Vec<WeightedColor>> {
 	let output = Command::new("magick")
 		.arg(path)
 		.args(["-scale", "800x600>", "-colors", &DOMINANT_COLORS.to_string(), "-depth", "8", "-format", "%c", "histogram:info:-"])
@@ -71,22 +78,25 @@ fn extract_with_imagemagick(path: &Path) -> Result<Vec<Rgb>> {
 	let mut colors = Vec::new();
 
 	for line in stdout.lines() {
-		if let Some(color) = parse_histogram_line(line) {
-			colors.push(color);
+		if let Some(wc) = parse_histogram_line(line) {
+			colors.push(wc);
 		}
 	}
 
 	Ok(colors)
 }
 
-fn parse_histogram_line(line: &str) -> Option<Rgb> {
+fn parse_histogram_line(line: &str) -> Option<WeightedColor> {
 	let line = line.trim();
+	let count: u64 = line.split(':').next()?.trim().parse().ok()?;
 	let hex_start = line.find('#')?;
 	if hex_start + 7 > line.len() {
 		return None;
 	}
 	let hex = &line[hex_start + 1..hex_start + 7];
-	Rgb::from_hex(hex)
+	let rgb = Rgb::from_hex(hex)?;
+	let hsl = rgb.to_hsl();
+	Some(WeightedColor { rgb, hsl, weight: count })
 }
 
 fn is_monochrome(colors: &[Hsl]) -> bool {
@@ -128,20 +138,157 @@ fn hue_distance(h1: f64, h2: f64) -> f64 {
 	if diff > 180.0 { 360.0 - diff } else { diff }
 }
 
-fn generate_chromatic_palette(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bool) -> Palette {
+fn find_accent(colors: &[WeightedColor], light_mode: bool) -> Rgb {
+	let total_weight: u64 = colors.iter().map(|c| c.weight).sum();
+	if total_weight == 0 {
+		return Rgb::new(100, 100, 200);
+	}
+
+	let mut best: Option<&WeightedColor> = None;
+	let mut best_score = 0.0;
+
+	for c in colors {
+		let s = c.hsl.s * 100.0;
+		let l = c.hsl.l * 100.0;
+		if s < MONOCHROME_SAT_THRESHOLD {
+			continue;
+		}
+		if !(TOO_DARK..=TOO_BRIGHT).contains(&l) {
+			continue;
+		}
+		let weight_factor = (c.weight as f64 / total_weight as f64).sqrt();
+		let sat_factor = s / 100.0;
+		let l_factor = 1.0 - ((l - 50.0).abs() / 50.0) * 0.3;
+		let score = weight_factor * sat_factor * l_factor;
+		if score > best_score {
+			best_score = score;
+			best = Some(c);
+		}
+	}
+
+	if let Some(c) = best {
+		let target_l = if light_mode { 45.0 } else { 55.0 };
+		let target_s = c.hsl.s.max(0.5);
+		Hsl::new(c.hsl.h, target_s, target_l / 100.0).to_rgb()
+	} else {
+		let avg_hue = colors.iter().map(|c| c.hsl.h).sum::<f64>() / colors.len() as f64;
+		let target_l = if light_mode { 45.0 } else { 55.0 };
+		Hsl::new(avg_hue, 0.4, target_l / 100.0).to_rgb()
+	}
+}
+
+fn find_secondary(colors: &[WeightedColor], accent_hue: f64, light_mode: bool) -> Rgb {
+	let total_weight: u64 = colors.iter().map(|c| c.weight).sum();
+
+	let mut best: Option<&WeightedColor> = None;
+	let mut best_score = 0.0;
+
+	for c in colors {
+		let s = c.hsl.s * 100.0;
+		let l = c.hsl.l * 100.0;
+		if s < MONOCHROME_SAT_THRESHOLD {
+			continue;
+		}
+		let hue_diff = hue_distance(c.hsl.h, accent_hue);
+		if hue_diff < 40.0 {
+			continue;
+		}
+		if !(TOO_DARK..=TOO_BRIGHT).contains(&l) {
+			continue;
+		}
+		let weight_factor = (c.weight as f64 / total_weight.max(1) as f64).sqrt();
+		let sat_factor = s / 100.0;
+		let hue_bonus = (hue_diff / 180.0).min(1.0) * 0.3;
+		let score = weight_factor * sat_factor + hue_bonus;
+		if score > best_score {
+			best_score = score;
+			best = Some(c);
+		}
+	}
+
+	if let Some(c) = best {
+		let target_l = if light_mode { 45.0 } else { 55.0 };
+		let target_s = c.hsl.s.max(0.4);
+		Hsl::new(c.hsl.h, target_s, target_l / 100.0).to_rgb()
+	} else {
+		let complementary = (accent_hue + 180.0) % 360.0;
+		let target_l = if light_mode { 45.0 } else { 55.0 };
+		Hsl::new(complementary, 0.35, target_l / 100.0).to_rgb()
+	}
+}
+
+struct SemanticColors {
+	accent: Rgb,
+	accent_dim: Rgb,
+	accent_bright: Rgb,
+	secondary: Rgb,
+	surface: Rgb,
+	on_accent: Rgb,
+	on_surface: Rgb,
+}
+
+fn generate_semantic_colors(colors: &[WeightedColor], bg: &Rgb, fg: &Rgb, light_mode: bool) -> SemanticColors {
+	let accent = find_accent(colors, light_mode);
+	let accent_hsl = accent.to_hsl();
+
+	let accent_dim = {
+		let l = if light_mode {
+			(accent_hsl.l * 100.0 + 15.0).min(70.0)
+		} else {
+			(accent_hsl.l * 100.0 - 20.0).max(25.0)
+		};
+		Hsl::new(accent_hsl.h, accent_hsl.s * 0.8, l / 100.0).to_rgb()
+	};
+
+	let accent_bright = {
+		let l = if light_mode {
+			(accent_hsl.l * 100.0 - 15.0).max(30.0)
+		} else {
+			(accent_hsl.l * 100.0 + 15.0).min(75.0)
+		};
+		Hsl::new(accent_hsl.h, (accent_hsl.s * 1.1).min(1.0), l / 100.0).to_rgb()
+	};
+
+	let secondary = find_secondary(colors, accent_hsl.h, light_mode);
+
+	let bg_hsl = bg.to_hsl();
+	let surface = {
+		let l = if light_mode {
+			(bg_hsl.l * 100.0 - 5.0).max(80.0)
+		} else {
+			(bg_hsl.l * 100.0 + 6.0).min(20.0)
+		};
+		Hsl::new(accent_hsl.h, 0.1, l / 100.0).to_rgb()
+	};
+
+	let on_accent = {
+		let accent_l = accent_hsl.l * 100.0;
+		if accent_l > 55.0 {
+			Hsl::new(accent_hsl.h, 0.15, 0.1).to_rgb()
+		} else {
+			Hsl::new(accent_hsl.h, 0.05, 0.95).to_rgb()
+		}
+	};
+
+	let on_surface = *fg;
+
+	SemanticColors { accent, accent_dim, accent_bright, secondary, surface, on_accent, on_surface }
+}
+
+fn generate_chromatic_palette(colors: &[WeightedColor], light_mode: bool) -> Palette {
 	let mut used: HashSet<usize> = HashSet::new();
 
-	let (bg_idx, bg) = find_background(colors, hsl_colors, light_mode);
+	let (bg_idx, bg) = find_background(colors, light_mode);
 	used.insert(bg_idx);
 
-	let (fg_idx, fg) = find_foreground(colors, hsl_colors, &bg, light_mode, &used);
+	let (fg_idx, fg) = find_foreground(colors, &bg, light_mode, &used);
 	used.insert(fg_idx);
 
 	let bg_hsl = bg.to_hsl();
 
 	let mut ansi = [Rgb::new(128, 128, 128); 6];
 	for (i, &target_hue) in ANSI_HUES.iter().enumerate() {
-		if let Some((idx, color)) = find_best_color_match(colors, hsl_colors, target_hue, &used) {
+		if let Some((idx, color)) = find_best_color_match(colors, target_hue, &used) {
 			ansi[i] = color;
 			used.insert(idx);
 		} else {
@@ -164,22 +311,26 @@ fn generate_chromatic_palette(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bo
 	let mut bright = make_bright(&ansi, light_mode);
 	normalize_brightness(&mut bright, &bg, light_mode);
 
-	Palette::new([
-		bg, ansi[0], ansi[1], ansi[2], ansi[3], ansi[4], ansi[5], fg,
-		bright_black, bright[0], bright[1], bright[2], bright[3], bright[4], bright[5], fg,
-	])
+	let sem = generate_semantic_colors(colors, &bg, &fg, light_mode);
+
+	Palette::new(
+		[bg, ansi[0], ansi[1], ansi[2], ansi[3], ansi[4], ansi[5], fg,
+		 bright_black, bright[0], bright[1], bright[2], bright[3], bright[4], bright[5], fg],
+		sem.accent, sem.accent_dim, sem.accent_bright, sem.secondary, sem.surface, sem.on_accent, sem.on_surface,
+	)
 }
 
-fn generate_monochrome_palette(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bool) -> Palette {
-	let (darkest_idx, lightest_idx) = find_lightness_extremes(hsl_colors);
+fn generate_monochrome_palette(colors: &[WeightedColor], light_mode: bool) -> Palette {
+	let hsl_colors: Vec<Hsl> = colors.iter().map(|c| c.hsl).collect();
+	let (darkest_idx, lightest_idx) = find_lightness_extremes(&hsl_colors);
 	let darkest = &hsl_colors[darkest_idx];
 	let lightest = &hsl_colors[lightest_idx];
 	let base_hue = darkest.h;
 
 	let (bg, fg) = if light_mode {
-		(colors[lightest_idx], colors[darkest_idx])
+		(colors[lightest_idx].rgb, colors[darkest_idx].rgb)
 	} else {
-		(colors[darkest_idx], colors[lightest_idx])
+		(colors[darkest_idx].rgb, colors[lightest_idx].rgb)
 	};
 
 	let (start_l, end_l) = if light_mode {
@@ -230,14 +381,18 @@ fn generate_monochrome_palette(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: b
 		Hsl::new(base_hue, 0.02, l / 100.0).to_rgb()
 	};
 
-	Palette::new([
-		bg, ansi[0], ansi[1], ansi[2], ansi[3], ansi[4], ansi[5], fg,
-		bright_black, bright[0], bright[1], bright[2], bright[3], bright[4], bright[5], bright_white,
-	])
+	let sem = generate_semantic_colors(colors, &bg, &fg, light_mode);
+
+	Palette::new(
+		[bg, ansi[0], ansi[1], ansi[2], ansi[3], ansi[4], ansi[5], fg,
+		 bright_black, bright[0], bright[1], bright[2], bright[3], bright[4], bright[5], bright_white],
+		sem.accent, sem.accent_dim, sem.accent_bright, sem.secondary, sem.surface, sem.on_accent, sem.on_surface,
+	)
 }
 
-fn generate_subtle_palette(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bool) -> Palette {
-	let (darkest_idx, lightest_idx) = find_lightness_extremes(hsl_colors);
+fn generate_subtle_palette(colors: &[WeightedColor], light_mode: bool) -> Palette {
+	let hsl_colors: Vec<Hsl> = colors.iter().map(|c| c.hsl).collect();
+	let (darkest_idx, lightest_idx) = find_lightness_extremes(&hsl_colors);
 	let darkest = &hsl_colors[darkest_idx];
 	let lightest = &hsl_colors[lightest_idx];
 
@@ -249,9 +404,9 @@ fn generate_subtle_palette(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bool)
 	};
 
 	let (bg, fg) = if light_mode {
-		(colors[lightest_idx], colors[darkest_idx])
+		(colors[lightest_idx].rgb, colors[darkest_idx].rgb)
 	} else {
-		(colors[darkest_idx], colors[lightest_idx])
+		(colors[darkest_idx].rgb, colors[lightest_idx].rgb)
 	};
 
 	let mut ansi = [Rgb::new(128, 128, 128); 6];
@@ -290,10 +445,13 @@ fn generate_subtle_palette(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bool)
 		Hsl::new(avg_hue, SUBTLE_SAT * 0.3 / 100.0, l / 100.0).to_rgb()
 	};
 
-	Palette::new([
-		bg, ansi[0], ansi[1], ansi[2], ansi[3], ansi[4], ansi[5], fg,
-		bright_black, bright[0], bright[1], bright[2], bright[3], bright[4], bright[5], bright_white,
-	])
+	let sem = generate_semantic_colors(colors, &bg, &fg, light_mode);
+
+	Palette::new(
+		[bg, ansi[0], ansi[1], ansi[2], ansi[3], ansi[4], ansi[5], fg,
+		 bright_black, bright[0], bright[1], bright[2], bright[3], bright[4], bright[5], bright_white],
+		sem.accent, sem.accent_dim, sem.accent_bright, sem.secondary, sem.surface, sem.on_accent, sem.on_surface,
+	)
 }
 
 fn find_lightness_extremes(colors: &[Hsl]) -> (usize, usize) {
@@ -316,12 +474,12 @@ fn find_lightness_extremes(colors: &[Hsl]) -> (usize, usize) {
 	(darkest, lightest)
 }
 
-fn find_background(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bool) -> (usize, Rgb) {
+fn find_background(colors: &[WeightedColor], light_mode: bool) -> (usize, Rgb) {
 	let mut best_idx = 0;
 	let mut best_l = if light_mode { 0.0 } else { 100.0 };
 
-	for (i, hsl) in hsl_colors.iter().enumerate() {
-		let l = hsl.l * 100.0;
+	for (i, c) in colors.iter().enumerate() {
+		let l = c.hsl.l * 100.0;
 		if light_mode {
 			if l <= MAX_BG_LIGHTNESS_LIGHT && l > best_l {
 				best_l = l;
@@ -333,7 +491,7 @@ fn find_background(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bool) -> (usi
 		}
 	}
 
-	let mut bg = colors[best_idx];
+	let mut bg = colors[best_idx].rgb;
 	let hsl = bg.to_hsl();
 	let l = if light_mode {
 		(hsl.l * 100.0).clamp(MAX_BG_LIGHTNESS_LIGHT - 10.0, MAX_BG_LIGHTNESS_LIGHT)
@@ -345,16 +503,16 @@ fn find_background(colors: &[Rgb], hsl_colors: &[Hsl], light_mode: bool) -> (usi
 	(best_idx, bg)
 }
 
-fn find_foreground(colors: &[Rgb], hsl_colors: &[Hsl], bg: &Rgb, light_mode: bool, used: &HashSet<usize>) -> (usize, Rgb) {
+fn find_foreground(colors: &[WeightedColor], bg: &Rgb, light_mode: bool, used: &HashSet<usize>) -> (usize, Rgb) {
 	let bg_l = bg.to_hsl().l * 100.0;
 	let mut best_idx = 0;
 	let mut best_l = if light_mode { 100.0 } else { 0.0 };
 
-	for (i, hsl) in hsl_colors.iter().enumerate() {
+	for (i, c) in colors.iter().enumerate() {
 		if used.contains(&i) {
 			continue;
 		}
-		let l = hsl.l * 100.0;
+		let l = c.hsl.l * 100.0;
 		if light_mode {
 			if l < best_l {
 				best_l = l;
@@ -366,7 +524,7 @@ fn find_foreground(colors: &[Rgb], hsl_colors: &[Hsl], bg: &Rgb, light_mode: boo
 		}
 	}
 
-	let mut fg = colors[best_idx];
+	let mut fg = colors[best_idx].rgb;
 	let fg_hsl = fg.to_hsl();
 	let contrast = (fg_hsl.l * 100.0 - bg_l).abs();
 
@@ -382,18 +540,18 @@ fn find_foreground(colors: &[Rgb], hsl_colors: &[Hsl], bg: &Rgb, light_mode: boo
 	(best_idx, fg)
 }
 
-fn find_best_color_match(colors: &[Rgb], hsl_colors: &[Hsl], target_hue: f64, used: &HashSet<usize>) -> Option<(usize, Rgb)> {
+fn find_best_color_match(colors: &[WeightedColor], target_hue: f64, used: &HashSet<usize>) -> Option<(usize, Rgb)> {
 	let mut best_idx = None;
 	let mut best_score = f64::MAX;
 
-	for (i, hsl) in hsl_colors.iter().enumerate() {
+	for (i, c) in colors.iter().enumerate() {
 		if used.contains(&i) {
 			continue;
 		}
 
-		let hue_diff = hue_distance(hsl.h, target_hue);
-		let s = hsl.s * 100.0;
-		let l = hsl.l * 100.0;
+		let hue_diff = hue_distance(c.hsl.h, target_hue);
+		let s = c.hsl.s * 100.0;
+		let l = c.hsl.l * 100.0;
 
 		let sat_penalty = if s < MONOCHROME_SAT_THRESHOLD { 50.0 } else { 0.0 };
 		let l_penalty = if !(TOO_DARK..=TOO_BRIGHT).contains(&l) { 10.0 } else { 0.0 };
@@ -406,7 +564,7 @@ fn find_best_color_match(colors: &[Rgb], hsl_colors: &[Hsl], target_hue: f64, us
 		}
 	}
 
-	best_idx.map(|i| (i, colors[i]))
+	best_idx.map(|i| (i, colors[i].rgb))
 }
 
 fn make_bright(colors: &[Rgb; 6], light_mode: bool) -> [Rgb; 6] {

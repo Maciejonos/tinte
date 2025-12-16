@@ -142,11 +142,28 @@ impl fmt::Display for Rgb {
 #[derive(Debug, Clone)]
 pub struct Palette {
 	pub colors: [Rgb; 16],
+	pub accent: Rgb,
+	pub accent_dim: Rgb,
+	pub accent_bright: Rgb,
+	pub secondary: Rgb,
+	pub surface: Rgb,
+	pub on_accent: Rgb,
+	pub on_surface: Rgb,
 }
 
 impl Palette {
-	pub fn new(colors: [Rgb; 16]) -> Self {
-		Self { colors }
+	#[allow(clippy::too_many_arguments)]
+	pub fn new(
+		colors: [Rgb; 16],
+		accent: Rgb,
+		accent_dim: Rgb,
+		accent_bright: Rgb,
+		secondary: Rgb,
+		surface: Rgb,
+		on_accent: Rgb,
+		on_surface: Rgb,
+	) -> Self {
+		Self { colors, accent, accent_dim, accent_bright, secondary, surface, on_accent, on_surface }
 	}
 
 	pub fn background(&self) -> Rgb {
@@ -179,6 +196,13 @@ impl Default for Palette {
 				Rgb::from_hex("#7dcfff").unwrap(),
 				Rgb::from_hex("#c0caf5").unwrap(),
 			],
+			accent: Rgb::from_hex("#7aa2f7").unwrap(),
+			accent_dim: Rgb::from_hex("#3d5179").unwrap(),
+			accent_bright: Rgb::from_hex("#a9c4fa").unwrap(),
+			secondary: Rgb::from_hex("#bb9af7").unwrap(),
+			surface: Rgb::from_hex("#24283b").unwrap(),
+			on_accent: Rgb::from_hex("#1a1b26").unwrap(),
+			on_surface: Rgb::from_hex("#c0caf5").unwrap(),
 		}
 	}
 }

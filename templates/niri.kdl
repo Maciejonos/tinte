@@ -2,7 +2,7 @@ layout {
 	border {
 		on
 		width 2
-		active-color "#{color7.strip}"
+		active-color "#{accent.strip}"
 		inactive-color "#{background.strip}"
 	}
 }
@@ -11,7 +11,7 @@ recent-windows {
 	debounce-ms 750
 	open-delay-ms 150
 	highlight {
-		active-color "#{color7.strip}"
+		active-color "#{accent.strip}"
 		urgent-color "#{color1.strip}"
 		padding 10
 		corner-radius 8
